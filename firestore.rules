@@ -1,0 +1,176 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Bootstrapped Admin with verified email
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == "sureanhari1106@gmail.com" && request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isManager() {
+      return isSignedIn() && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['manager', 'admin'])
+      );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Organizations
+    match /organizations/{orgId} {
+      allow get: if isSignedIn() && isValidId(orgId);
+      allow list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Worksites
+    match /organizations/{orgId}/worksites/{worksiteId} {
+      allow get, list: if isSignedIn() && isValidId(orgId) && isValidId(worksiteId);
+      allow write: if isManager();
+    }
+
+    // Worksite top-level collection fallback
+    match /worksites/{worksiteId} {
+      allow get, list: if isSignedIn() && isValidId(worksiteId);
+      allow write: if isManager();
+    }
+
+    // Users
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (isOwner(userId) || isManager());
+      allow list: if isManager();
+      allow create: if isSignedIn() && isOwner(userId) &&
+        incoming().keys().hasAll(['id', 'organizationId', 'name', 'role']) &&
+        (isAdmin() || incoming().role == 'worker'); // Regular workers cannot self-elevate to admin
+      allow update: if isSignedIn() && (
+        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['preferredLanguage', 'trade'])) ||
+        isManager()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Attendance
+    match /attendance/{attendanceId} {
+      allow get: if isSignedIn() && isValidId(attendanceId) &&
+        (isOwner(existing().workerId) || isManager());
+      allow list: if isSignedIn() && (
+        resource.data.workerId == request.auth.uid || isManager()
+      );
+      allow create: if isSignedIn() && (
+        (incoming().workerId == request.auth.uid) || isManager()
+      );
+      allow update: if isManager(); // Only managers/admins can adjust official attendance records
+      allow delete: if isAdmin();
+    }
+
+    // Payroll Records - Strict Worker Privacy
+    match /payroll/{payrollId} {
+      allow get: if isSignedIn() && isValidId(payrollId) &&
+        (isOwner(existing().workerId) || isManager());
+      allow list: if isSignedIn() && (
+        resource.data.workerId == request.auth.uid || isManager()
+      );
+      allow create, update, delete: if isManager(); // Workers can NEVER alter payroll directly
+    }
+
+    // Worker Requests (Disputes & Corrections)
+    match /workerRequests/{requestId} {
+      allow get: if isSignedIn() && isValidId(requestId) &&
+        (isOwner(existing().workerId) || isManager());
+      allow list: if isSignedIn() && (
+        resource.data.workerId == request.auth.uid || isManager()
+      );
+      allow create: if isSignedIn() &&
+        (incoming().workerId == request.auth.uid || isManager()) &&
+        incoming().status in ['draft', 'waiting_to_send', 'submitted'] &&
+        incoming().keys().hasAll(['id', 'refNumber', 'organizationId', 'workerId', 'category', 'title', 'status', 'createdAt']);
+      allow update: if isSignedIn() && (
+        // Worker can only add clarifications if more_info_requested or cancel
+        (isOwner(existing().workerId) &&
+         existing().status == 'more_info_requested' &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['description', 'transcript', 'status', 'updatedAt', 'workerResponse'])) ||
+        // Manager can update status, add adminNotes, resolutionReason
+        isManager()
+      );
+      allow delete: if isAdmin() || (isOwner(existing().workerId) && existing().status == 'draft');
+    }
+
+    // Safety Reports (Hazards, Injuries, Fatigue)
+    match /safetyReports/{reportId} {
+      allow get: if isSignedIn() && isValidId(reportId) &&
+        (isOwner(existing().reporterId) || isManager());
+      allow list: if isSignedIn() && (
+        resource.data.reporterId == request.auth.uid || isManager()
+      );
+      allow create: if isSignedIn() &&
+        incoming().keys().hasAll(['id', 'refNumber', 'organizationId', 'sector', 'reportType', 'urgency', 'status', 'createdAt']);
+      allow update: if isManager(); // Workers cannot unilaterally dismiss safety reports
+      allow delete: if isAdmin();
+    }
+
+    // Anonymous Feedback - NO WORKER IDENTITY ALLOWED
+    match /anonymousFeedback/{feedbackId} {
+      // Cannot read individually unless manager or admin
+      allow get: if isManager() && isValidId(feedbackId);
+      allow list: if isManager();
+      // Any signed in user can create anonymous feedback, BUT payload MUST NOT contain workerId or userId
+      allow create: if isSignedIn() &&
+        !incoming().keys().hasAny(['workerId', 'userId', 'authorId', 'email', 'name']) &&
+        incoming().keys().hasAll(['id', 'organizationId', 'sector', 'category', 'feedbackText', 'createdAt']) &&
+        incoming().feedbackText is string && incoming().feedbackText.size() <= 2000;
+      allow update, delete: if isAdmin();
+    }
+
+    // Skill Passport
+    match /skillPassport/{skillId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && (
+        (incoming().workerId == request.auth.uid && incoming().isVerified == false) ||
+        isManager()
+      );
+      allow update: if isManager(); // Only managers can verify skills
+      allow delete: if isManager() || (isSignedIn() && existing().workerId == request.auth.uid && existing().isVerified == false);
+    }
+
+    // Emergency Contacts (Read-only for all signed in users)
+    match /emergencyContacts/{contactId} {
+      allow get, list: if isSignedIn();
+      allow write: if isManager();
+    }
+
+    // Audit Logs - Read-only for Managers, Append-only
+    match /auditLogs/{auditId} {
+      allow get, list: if isManager() && isValidId(auditId);
+      allow create: if isManager() && incoming().actorId == request.auth.uid;
+      allow update, delete: if false; // Audit logs are immutable
+    }
+  }
+}

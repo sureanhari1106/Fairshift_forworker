@@ -1,0 +1,230 @@
+{
+  "entities": {
+    "Organization": {
+      "title": "Organization",
+      "description": "An enterprise or contractor organization managing worksites and workers.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "sector": { "type": "string", "enum": ["construction", "manufacturing"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "sector", "createdAt"]
+    },
+    "Worksite": {
+      "title": "Worksite",
+      "description": "A specific construction site, project location, or factory floor.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "sector": { "type": "string", "enum": ["construction", "manufacturing"] },
+        "location": { "type": "string", "maxLength": 200 },
+        "safetyOfficer": { "type": "string", "maxLength": 100 },
+        "emergencyPhone": { "type": "string", "maxLength": 30 }
+      },
+      "required": ["id", "organizationId", "name", "sector"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with role and organization association.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["worker", "manager", "admin"] },
+        "sector": { "type": "string", "enum": ["construction", "manufacturing"] },
+        "preferredLanguage": { "type": "string", "enum": ["en", "ta"] },
+        "trade": { "type": "string", "maxLength": 100 },
+        "workerId": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "organizationId", "name", "role"]
+    },
+    "AttendanceEvent": {
+      "title": "AttendanceEvent",
+      "description": "Daily attendance clock-in, clock-out and verified hours record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "workerId": { "type": "string" },
+        "worksiteId": { "type": "string" },
+        "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "clockIn": { "type": "string" },
+        "clockOut": { "type": "string" },
+        "totalHours": { "type": "number" },
+        "overtimeHours": { "type": "number" },
+        "status": { "type": "string", "enum": ["in_progress", "completed", "disputed", "corrected"] }
+      },
+      "required": ["id", "organizationId", "workerId", "worksiteId", "date"]
+    },
+    "PayrollRecord": {
+      "title": "PayrollRecord",
+      "description": "Detailed itemised payslip record with transparent earnings and deductions breakdown.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "workerId": { "type": "string" },
+        "payPeriod": { "type": "string", "maxLength": 50 },
+        "baseRate": { "type": "number" },
+        "regularHours": { "type": "number" },
+        "regularEarnings": { "type": "number" },
+        "overtimeHours": { "type": "number" },
+        "overtimeRate": { "type": "number" },
+        "overtimeEarnings": { "type": "number" },
+        "allowances": { "type": "number" },
+        "deductions": { "type": "number" },
+        "netPayable": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "issued", "disputed", "paid"] },
+        "paymentDate": { "type": "string" }
+      },
+      "required": ["id", "organizationId", "workerId", "payPeriod", "netPayable", "status"]
+    },
+    "WorkerRequest": {
+      "title": "WorkerRequest",
+      "description": "A formal request or dispute submitted by a worker for administrator review.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "refNumber": { "type": "string", "maxLength": 30 },
+        "organizationId": { "type": "string" },
+        "workerId": { "type": "string" },
+        "workerName": { "type": "string", "maxLength": 100 },
+        "category": { "type": "string" },
+        "title": { "type": "string", "maxLength": 150 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "originalLanguage": { "type": "string", "maxLength": 10 },
+        "relevantDate": { "type": "string" },
+        "relatedRecordId": { "type": "string" },
+        "voiceNoteUrl": { "type": "string" },
+        "transcript": { "type": "string", "maxLength": 2000 },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "waiting_to_send", "submitted", "under_review", "more_info_requested", "approved", "rejected", "resolved"]
+        },
+        "urgency": { "type": "string", "enum": ["normal", "urgent", "critical"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "adminNotes": { "type": "string", "maxLength": 1000 },
+        "resolutionReason": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "refNumber", "organizationId", "workerId", "category", "title", "status", "createdAt"]
+    },
+    "SafetyReport": {
+      "title": "SafetyReport",
+      "description": "Incident, hazard, injury, or fatigue report submitted for site safety triage.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "refNumber": { "type": "string", "maxLength": 30 },
+        "organizationId": { "type": "string" },
+        "worksiteId": { "type": "string" },
+        "reporterId": { "type": "string" },
+        "sector": { "type": "string", "enum": ["construction", "manufacturing"] },
+        "reportType": { "type": "string", "enum": ["hazard", "injury", "fatigue", "near_miss"] },
+        "category": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "urgency": { "type": "string", "enum": ["low", "medium", "high", "immediate_danger"] },
+        "immediateActionTaken": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "enum": ["reported", "investigating", "mitigated", "resolved"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "refNumber", "organizationId", "sector", "reportType", "urgency", "status", "createdAt"]
+    },
+    "AnonymousFeedback": {
+      "title": "AnonymousFeedback",
+      "description": "Anonymous worker workplace sentiment or concern with absolutely NO worker identifier.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "sector": { "type": "string", "enum": ["construction", "manufacturing"] },
+        "category": { "type": "string", "maxLength": 80 },
+        "feedbackText": { "type": "string", "maxLength": 2000 },
+        "sentiment": { "type": "string", "enum": ["positive", "neutral", "concern", "urgent"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "organizationId", "sector", "category", "feedbackText", "createdAt"]
+    },
+    "SkillPassport": {
+      "title": "SkillPassport",
+      "description": "Worker skill certifications, trade licenses, safety training, and verifications.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "workerId": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "skillName": { "type": "string", "maxLength": 100 },
+        "category": { "type": "string", "maxLength": 80 },
+        "issuingBody": { "type": "string", "maxLength": 100 },
+        "issuedDate": { "type": "string" },
+        "expiryDate": { "type": "string" },
+        "isVerified": { "type": "boolean" },
+        "verificationRef": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "workerId", "skillName", "isVerified"]
+    },
+    "AuditEvent": {
+      "title": "AuditEvent",
+      "description": "Immutable audit record of administrative approvals, rejections, and wage modifications.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "organizationId": { "type": "string" },
+        "actorId": { "type": "string" },
+        "actionType": { "type": "string", "maxLength": 50 },
+        "targetEntity": { "type": "string", "maxLength": 50 },
+        "targetId": { "type": "string", "maxLength": 100 },
+        "details": { "type": "string", "maxLength": 1000 },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "organizationId", "actorId", "actionType", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/organizations/{orgId}": {
+      "schema": "Organization",
+      "description": "Organizations collection"
+    },
+    "/organizations/{orgId}/worksites/{worksiteId}": {
+      "schema": "Worksite",
+      "description": "Worksites under organization"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile with role"
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "AttendanceEvent",
+      "description": "Worker attendance records"
+    },
+    "/payroll/{payrollId}": {
+      "schema": "PayrollRecord",
+      "description": "Itemised worker payroll records"
+    },
+    "/workerRequests/{requestId}": {
+      "schema": "WorkerRequest",
+      "description": "Worker disputes and correction requests"
+    },
+    "/safetyReports/{reportId}": {
+      "schema": "SafetyReport",
+      "description": "Worksite incident, hazard, and fatigue reports"
+    },
+    "/anonymousFeedback/{feedbackId}": {
+      "schema": "AnonymousFeedback",
+      "description": "Identifiable-free anonymous feedback collection"
+    },
+    "/skillPassport/{skillId}": {
+      "schema": "SkillPassport",
+      "description": "Worker verified and self-reported skills"
+    },
+    "/auditLogs/{auditId}": {
+      "schema": "AuditEvent",
+      "description": "Immutable administrator action audit log"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "FairShift - Worker-First Decent Work & Safety Platform",
+  "description": "Multilingual, lightweight AI-assisted decent-work, safety and wage transparency platform for construction and factory workers supporting UN SDG 8.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
