@@ -592,6 +592,10 @@ export class FairShiftStore {
     return all.filter((p) => p.workerId === workerId);
   }
 
+  static savePayroll(items: PayrollRecord[]): void {
+    saveToStorage(STORAGE_KEYS.PAYROLL, items);
+  }
+
   static getAttendance(workerId?: string): AttendanceRecord[] {
     const all = loadFromStorage<AttendanceRecord[]>(STORAGE_KEYS.ATTENDANCE, SEED_ATTENDANCE);
     if (!workerId) return all;
